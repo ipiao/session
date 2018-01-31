@@ -23,7 +23,6 @@ type Session struct {
 	deadline time.Time              // session过期时间
 	mu       sync.Mutex
 	opts     *Options
-	loadErr  error
 	store    Store
 }
 
@@ -376,9 +375,6 @@ func (s *Session) PopObject(key string, dst interface{}) error {
 
 // Keys 返回所有的键
 func (s *Session) Keys() ([]string, error) {
-	if s.loadErr != nil {
-		return nil, s.loadErr
-	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -396,9 +392,6 @@ func (s *Session) Keys() ([]string, error) {
 
 // Exists 是否存在给定键的数据
 func (s *Session) Exists(key string) (bool, error) {
-	if s.loadErr != nil {
-		return false, s.loadErr
-	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -409,9 +402,6 @@ func (s *Session) Exists(key string) (bool, error) {
 
 // Remove 移除给定键数据
 func (s *Session) Remove(key string) error {
-	if s.loadErr != nil {
-		return s.loadErr
-	}
 
 	s.mu.Lock()
 
@@ -429,9 +419,6 @@ func (s *Session) Remove(key string) error {
 
 // Clear 清楚所有的数据
 func (s *Session) Clear() error {
-	if s.loadErr != nil {
-		return s.loadErr
-	}
 
 	s.mu.Lock()
 
@@ -448,38 +435,8 @@ func (s *Session) Clear() error {
 	return s.write()
 }
 
-// RenewToken 重新创建token
-func (s *Session) RenewToken() error {
-	if s.loadErr != nil {
-		return s.loadErr
-	}
-
-	s.mu.Lock()
-
-	err := s.store.Delete(s.token)
-	if err != nil {
-		s.mu.Unlock()
-		return err
-	}
-
-	token, err := generateToken()
-	if err != nil {
-		s.mu.Unlock()
-		return err
-	}
-
-	s.token = token
-	s.deadline = time.Now().Add(s.opts.lifetime)
-	s.mu.Unlock()
-
-	return s.write()
-}
-
 // Destroy 摧毁session
 func (s *Session) Destroy() error {
-	if s.loadErr != nil {
-		return s.loadErr
-	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -499,46 +456,30 @@ func (s *Session) Destroy() error {
 
 // Touch 相当于刷新一下时间
 func (s *Session) Touch() error {
-	if s.loadErr != nil {
-		return s.loadErr
-	}
-
 	return s.write()
 }
 
 //-------------------------
 
 // Get 获取key对应的值
+// err:如果将从store中获取值，将会有错误返回
 func (s *Session) Get(key string) (interface{}, bool, error) {
-	if s.loadErr != nil {
-		return nil, false, s.loadErr
-	}
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	v, exists := s.data[key]
 	return v, exists, nil
 }
 
 // Put 存入，存在则替换
 func (s *Session) Put(key string, val interface{}) error {
-	if s.loadErr != nil {
-		return s.loadErr
-	}
-
 	s.mu.Lock()
 	s.data[key] = val
 	s.mu.Unlock()
-
 	return s.write()
 }
 
 // Pop 移除并返回
 func (s *Session) Pop(key string) (interface{}, bool, error) {
-	if s.loadErr != nil {
-		return nil, false, s.loadErr
-	}
 	s.mu.Lock()
 
 	v, exists := s.data[key]

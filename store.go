@@ -14,8 +14,11 @@ type Store interface {
 	// 查找给定token的session
 	Find(token string) (b []byte, found bool, err error)
 
-	// // FineAll 查找所有数据，用于分布式/系统重启的session重载
-	// FineAll(bs [][]byte, err error)
+	//// session数据落地,与Loads主要是针对memoryStore
+	//Dumps()(err error)
+
+	//// 加载保存的session数据
+	//Loads()(bs [][]byte,err error)
 }
 
 type cookieStore interface {
