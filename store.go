@@ -14,6 +14,10 @@ type Store interface {
 	// 查找给定token的session
 	Find(token string) (b []byte, found bool, err error)
 
+	// 废弃，这里要求所有的存储器自带GC
+	//// 返回存储器是否会自动GC
+	//AutoGC() bool
+
 	//// session数据落地,与Loads主要是针对memoryStore
 	//Dumps()(err error)
 
@@ -21,6 +25,7 @@ type Store interface {
 	//Loads()(bs [][]byte,err error)
 }
 
-type cookieStore interface {
+// 自带token生成方法的，将数据存储在token里面的存储器，如cookie存储器,客户端存储器
+type clientStore interface {
 	MakeToken(b []byte, expiry time.Time) (token string, err error)
 }

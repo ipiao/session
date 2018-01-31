@@ -7,4 +7,5 @@
 
 ### TODO
 >支持data查询
+>将cookieManager的客户端持有数据舍弃，在服务端固有数据的情况下，
 

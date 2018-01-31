@@ -26,14 +26,50 @@ type Session struct {
 	store    Store
 }
 
+// GetToken 获取sessionToken
+func (s *Session) GetToken() string {
+	return s.token
+}
+
+// GetExpiry 获取过期时间点
+func (s *Session) GetExpiry() time.Time {
+	expiry := s.deadline
+	if s.opts.idleTimeout > 0 {
+		ie := time.Now().Add(s.opts.idleTimeout)
+		if ie.Before(expiry) {
+			expiry = ie
+		}
+	}
+	return expiry
+}
+
+// TimeOut 判断session是否过期
+// 1.验证过期时间
+// 2.如果未过期，到数据库中查找，如果存不存在
+func (s *Session) TimeOut() bool {
+	if time.Now().Before(s.deadline) {
+		//_, found, _ := s.store.Find(s.token)
+		//if !found {
+		//	return true
+		//}
+		return false
+	}
+	return true
+}
+
 // newSession 返回一个默认的Session
-func newSession(store Store, opts *Options) *Session {
+func newSession(store Store, opts *Options) (*Session, error) {
+	token, err := generateToken()
+	if err != nil {
+		return nil, err
+	}
 	return &Session{
 		data:     make(map[string]interface{}),
 		deadline: time.Now().Add(opts.lifetime),
 		store:    store,
 		opts:     opts,
-	}
+		token:    token,
+	}, nil
 }
 
 // GetString 获取String
@@ -437,26 +473,22 @@ func (s *Session) Clear() error {
 
 // Destroy 摧毁session
 func (s *Session) Destroy() error {
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	err := s.store.Delete(s.token)
 	if err != nil {
 		return err
 	}
-
 	s.token = ""
 	for key := range s.data {
 		delete(s.data, key)
 	}
-
 	return nil
 }
 
-// Touch 相当于刷新一下时间
-func (s *Session) Touch() error {
-	return s.write()
+// Write 相当于刷新一下时间
+func (s *Session) Write(bs []byte) error {
+	return s.write(bs)
 }
 
 //-------------------------
@@ -498,29 +530,25 @@ func (s *Session) Pop(key string) (interface{}, bool, error) {
 }
 
 // 写入并更改相应的数据
-func (s *Session) write() error {
+func (s *Session) write(bs ...[]byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	j, err := encodeToJSON(s.data, s.deadline)
-	if err != nil {
-		return err
+	if len(s.token) == 0 {
+		return errors.New("scs: token is empty,can not write")
 	}
 
-	expiry := s.deadline
-	if s.opts.idleTimeout > 0 {
-		ie := time.Now().Add(s.opts.idleTimeout)
-		if ie.Before(expiry) {
-			expiry = ie
-		}
-	}
-
-	if s.token == "" {
-		s.token, err = generateToken()
+	var j []byte
+	var err error
+	if len(bs) > 0 {
+		j = bs[0]
+	} else {
+		j, err = encodeToJSON(s.data, s.deadline)
 		if err != nil {
 			return err
 		}
 	}
+	expiry := s.GetExpiry()
 	err = s.store.Save(s.token, j, expiry)
 	if err != nil {
 		return err
