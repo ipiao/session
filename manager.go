@@ -85,6 +85,18 @@ func (m *Manager) FindSeesion(fds ...Finder) []*Session {
 	return ret
 }
 
+// FindHandleSeesion 查找并处理session
+func (m *Manager) FindHandleSeesion(fd Finder, hd Handle) []*Session {
+	var ret = make([]*Session, 0)
+	for _, s := range m.sessions {
+		if fd(s) {
+			hd(s)
+			ret = append(ret, s)
+		}
+	}
+	return ret
+}
+
 // NewSession 创建并且返回一个Session
 func (m *Manager) NewSession() (*Session, error) {
 	m.mu.Lock()
@@ -103,11 +115,23 @@ func (m *Manager) NewSession() (*Session, error) {
 
 type sessionName string
 
-// Load 从r里加载session
+// Load 选择manager中存在时候，从中获取
+func (m *Manager) Load(r *http.Request) (*Session, error) {
+	return m.load(r, true)
+}
+
+// LoadIM 不从manager中查找获取，从中获取
+// Load ingore manager
+func (m *Manager) LoadIM(r *http.Request) (*Session, error) {
+	return m.load(r, false)
+}
+
+// load 从r里加载session
 // 1.从request上下文中直接获取
 // 2.从cookie中获取token，根据token获取Session
-// 3.如果没有则生成一个session
-func (m *Manager) Load(r *http.Request) (*Session, error) {
+// 3.从manager中获取
+// 4.如果没有则生成一个session
+func (m *Manager) load(r *http.Request, queryManager bool) (*Session, error) {
 	// 检查上下文中是否存在session信息
 	val := r.Context().Value(sessionName(m.opts.name))
 	if val != nil {
@@ -120,13 +144,11 @@ func (m *Manager) Load(r *http.Request) (*Session, error) {
 	// 如果上下文中没有，从cokie中获取token,如果获取不到，直接生成
 	cookie, err := r.Cookie(m.opts.name)
 	if err == http.ErrNoCookie {
-		log.Println(err)
 		return m.NewSession()
 	} else if err != nil {
 		return nil, err
 	}
 	if cookie.Value == "" {
-		log.Println("cookie.Value is enpty")
 		return m.NewSession()
 	}
 	token := cookie.Value
@@ -136,7 +158,6 @@ func (m *Manager) Load(r *http.Request) (*Session, error) {
 		return nil, err
 	}
 	if found == false {
-		log.Println("can not find in store")
 		return m.NewSession()
 	}
 	// 根据数据生成一个session
@@ -144,12 +165,14 @@ func (m *Manager) Load(r *http.Request) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	ss := m.FindSeesion(FindByID(id), FindTimeIn())
-	if len(ss) == 1 {
-		return ss[0], nil
+	if queryManager {
+		ss := m.FindSeesion(FindByID(id), FindTimeIn())
+		if len(ss) == 1 {
+			return ss[0], nil
+		}
 	}
 	s := &Session{
-		id:       token,
+		id:       id,
 		token:    token,
 		data:     data,
 		deadline: deadline,
@@ -174,14 +197,12 @@ func (m *Manager) Use(next http.Handler) http.Handler {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		log.Println("use,load:", session.data)
 		err = session.WriteToResponseWriter(w)
 		if err != nil {
 			log.Println(err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		log.Println("use,write:", session.data)
 		ctx := context.WithValue(r.Context(), sessionName(m.opts.name), session)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

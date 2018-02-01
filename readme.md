@@ -7,6 +7,8 @@
 
 > - 将cookieStore分类为客户端存储器
 > - 在manage中保存session信息,用于manager之间的交互，同时GC机制清理manager中保存的过期session
+> - 添加session-id,用于在管理器中查找已存在的session进行返回
+> - 添加Finder,用于在管理器中查找符合条件的session
 
 
 ### TODO
