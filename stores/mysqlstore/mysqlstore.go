@@ -74,6 +74,31 @@ func (m *MySQLStore) Find(token string) ([]byte, bool, error) {
 	return b, true, nil
 }
 
+func (m *MySQLStore) FindAll() ([][]byte, error) {
+	var bs [][]byte
+	var stmt string
+
+	if compareVersion("5.6.4", m.version) >= 0 {
+		stmt = "SELECT data FROM sessions WHERE UTC_TIMESTAMP(6) < expiry"
+	} else {
+		stmt = "SELECT data FROM sessions WHERE UTC_TIMESTAMP < expiry"
+	}
+
+	rows, err := m.DB.Query(stmt)
+	defer rows.Close()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var b []byte
+		err = rows.Scan(&b)
+		bs = append(bs, b)
+	}
+	return bs, err
+}
+
 // Save adds a session token and data to the MySQLStore instance with the given expiry
 // time. If the session token already exists then the data and expiry time are updated.
 func (m *MySQLStore) Save(token string, b []byte, expiry time.Time) error {

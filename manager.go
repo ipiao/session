@@ -29,7 +29,31 @@ func NewManager(store Store, opts ...Option) *Manager {
 		opts:     &options,
 		sessions: make(map[string]*Session),
 	}
-	// go manager.RunGC()
+	// 从store中加载sessions
+	bs, err := store.FindAll()
+	if err != nil {
+		log.Printf("can not load sessions from store, error ocure:%v", err)
+	}
+	for _, b := range bs {
+		id, data, expiry, err := decodeFromJSON(b)
+		if err != nil {
+			log.Printf("can decode from JSON:%v", err)
+			continue
+		}
+		if expiry.After(time.Now()) {
+			s := Session{
+				id:       id,
+				token:    id,
+				data:     data,
+				deadline: expiry,
+				mu:       sync.Mutex{},
+				opts:     &options,
+				store:    store,
+			}
+			manager.sessions[s.token] = &s
+		}
+	}
+	go manager.RunGC()
 	return manager
 }
 

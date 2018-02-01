@@ -67,3 +67,17 @@ func (m *MemStore) Delete(token string) error {
 	m.cache.Delete(token)
 	return nil
 }
+
+// FindAll 查找所有
+func (m *MemStore) FindAll() (bs [][]byte, err error) {
+	items := m.cache.Items()
+	for _, v := range items {
+		b, ok := v.Object.([]byte)
+		if ok == false {
+			err = errTypeAssertionFailed
+			continue
+		}
+		bs = append(bs, b)
+	}
+	return
+}

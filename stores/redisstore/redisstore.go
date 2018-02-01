@@ -45,6 +45,28 @@ func (r *RedisStore) Find(token string) (b []byte, exists bool, err error) {
 	return b, true, nil
 }
 
+// FindAll 查找所有
+func (r *RedisStore) FindAll() (bs [][]byte, err error) {
+	conn := r.pool.Get()
+	defer conn.Close()
+	var ss []string
+	ss, err = redis.Strings(conn.Do("KEYS", Prefix+"*"))
+	if err == redis.ErrNil {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	for _, s := range ss {
+		var b []byte
+		b, err = redis.Bytes(conn.Do("GET", s))
+		if err != nil {
+			continue
+		}
+		bs = append(bs, b)
+	}
+	return
+}
+
 // Save adds a session token and data to the RedisStore instance with the given expiry time.
 // If the session token already exists then the data and expiry time are updated.
 func (r *RedisStore) Save(token string, b []byte, expiry time.Time) error {

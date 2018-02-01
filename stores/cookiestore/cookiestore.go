@@ -132,3 +132,8 @@ func decodeToken(key [32]byte, token string) ([]byte, error) {
 
 	return message[19:], nil
 }
+
+// FindAll 查找所有
+func (c *CookieStore) FindAll() (bs [][]byte, err error) {
+	return nil, nil
+}
