@@ -29,7 +29,7 @@ func NewManager(store Store, opts ...Option) *Manager {
 		opts:     &options,
 		sessions: make(map[string]*Session),
 	}
-	go manager.RunGC()
+	// go manager.RunGC()
 	return manager
 }
 
@@ -120,11 +120,13 @@ func (m *Manager) Load(r *http.Request) (*Session, error) {
 	// 如果上下文中没有，从cokie中获取token,如果获取不到，直接生成
 	cookie, err := r.Cookie(m.opts.name)
 	if err == http.ErrNoCookie {
+		log.Println(err)
 		return m.NewSession()
 	} else if err != nil {
 		return nil, err
 	}
 	if cookie.Value == "" {
+		log.Println("cookie.Value is enpty")
 		return m.NewSession()
 	}
 	token := cookie.Value
@@ -134,15 +136,20 @@ func (m *Manager) Load(r *http.Request) (*Session, error) {
 		return nil, err
 	}
 	if found == false {
+		log.Println("can not find in store")
 		return m.NewSession()
 	}
 	// 根据数据生成一个session
-	data, deadline, err := decodeFromJSON(j)
+	id, data, deadline, err := decodeFromJSON(j)
 	if err != nil {
 		return nil, err
 	}
-
+	ss := m.FindSeesion(FindByID(id), FindTimeIn())
+	if len(ss) == 1 {
+		return ss[0], nil
+	}
 	s := &Session{
+		id:       token,
 		token:    token,
 		data:     data,
 		deadline: deadline,

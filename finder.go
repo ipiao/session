@@ -25,10 +25,24 @@ func FindByKVEq(key string, value interface{}) Finder {
 	}
 }
 
+// FindTimeIn 查找未超时
+func FindTimeIn() Finder {
+	return func(s *Session) bool {
+		return !s.TimeOut()
+	}
+}
+
 // FindTimeOut 查找超时
 func FindTimeOut() Finder {
 	return func(s *Session) bool {
 		return s.TimeOut()
+	}
+}
+
+// FindByID 按id查找
+func FindByID(id string) Finder {
+	return func(s *Session) bool {
+		return s.id == id
 	}
 }
 

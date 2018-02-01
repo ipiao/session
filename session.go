@@ -18,6 +18,7 @@ var ErrTypeAssertionFailed = errors.New("type assertion failed")
 
 // Session 一个会话状态
 type Session struct {
+	id       string                 // session的id值，一般情况下就是token
 	token    string                 // session的Token值，其实也就是sessionID
 	data     map[string]interface{} // session储存数据
 	deadline time.Time              // session过期时间
@@ -32,13 +33,20 @@ func newSession(store Store, opts *Options) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Session{
+	s := &Session{
+		id:       token,
 		data:     make(map[string]interface{}),
 		deadline: time.Now().Add(opts.lifetime),
 		store:    store,
 		opts:     opts,
 		token:    token,
-	}, nil
+	}
+	return s, nil
+}
+
+// GetID 获取sessionID
+func (s *Session) GetID() string {
+	return s.id
 }
 
 // GetToken 获取sessionToken
@@ -472,6 +480,27 @@ func (s *Session) Clear() error {
 	return s.write()
 }
 
+// // RenewToken 重建token
+// func (s *Session) RenewToken() error {
+// 	s.mu.Lock()
+// 	err := s.store.Delete(s.token)
+// 	if err != nil {
+// 		s.mu.Unlock()
+// 		return err
+// 	}
+// 	token, err := generateToken()
+// 	if err != nil {
+// 		s.mu.Unlock()
+// 		return err
+// 	}
+
+// 	s.token = token
+// 	s.deadline = time.Now().Add(s.opts.lifetime)
+// 	s.mu.Unlock()
+
+// 	return s.write()
+// }
+
 // Destroy 摧毁session
 func (s *Session) Destroy() error {
 	s.mu.Lock()
@@ -481,10 +510,16 @@ func (s *Session) Destroy() error {
 		return err
 	}
 	s.token = ""
+	s.id = ""
 	for key := range s.data {
 		delete(s.data, key)
 	}
 	return nil
+}
+
+// Touch 相当于刷新一下时间
+func (s *Session) Touch() error {
+	return s.write()
 }
 
 // Write 相当于刷新一下时间
@@ -544,7 +579,7 @@ func (s *Session) write(bs ...[]byte) error {
 	if len(bs) > 0 {
 		j = bs[0]
 	} else {
-		j, err = encodeToJSON(s.data, s.deadline)
+		j, err = encodeToJSON(s.id, s.data, s.deadline)
 		if err != nil {
 			return err
 		}
@@ -581,27 +616,30 @@ func gobDecode(b []byte, dst interface{}) error {
 	return gob.NewDecoder(buf).Decode(dst)
 }
 
-func encodeToJSON(data map[string]interface{}, deadline time.Time) ([]byte, error) {
+func encodeToJSON(id string, data map[string]interface{}, deadline time.Time) ([]byte, error) {
 	return json.Marshal(&struct {
 		Data     map[string]interface{} `json:"data"`
 		Deadline int64                  `json:"deadline"`
+		ID       string                 `json:"id"`
 	}{
 		Data:     data,
 		Deadline: deadline.UnixNano(),
+		ID:       id,
 	})
 }
 
-func decodeFromJSON(j []byte) (map[string]interface{}, time.Time, error) {
+func decodeFromJSON(j []byte) (string, map[string]interface{}, time.Time, error) {
 	aux := struct {
 		Data     map[string]interface{} `json:"data"`
 		Deadline int64                  `json:"deadline"`
+		ID       string                 `json:"id"`
 	}{}
 
 	dec := json.NewDecoder(bytes.NewReader(j))
 	dec.UseNumber()
 	err := dec.Decode(&aux)
 	if err != nil {
-		return nil, time.Time{}, err
+		return "", nil, time.Time{}, err
 	}
-	return aux.Data, time.Unix(0, aux.Deadline), nil
+	return aux.ID, aux.Data, time.Unix(0, aux.Deadline), nil
 }

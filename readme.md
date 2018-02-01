@@ -15,6 +15,7 @@
 ###  demo
 
 ```go
+
 package main
 
 import (
@@ -23,14 +24,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ipiao/session"
+	scs "github.com/ipiao/session"
 )
 
-var sessionManager = session.NewCookieManager("u46IpCV9y5Vlur8YvODJEhgOY8m9JVE4")
+var sessionManager = scs.NewCookieManager("u46IpCV9y5Vlur8YvODJEhgOY8m9JVE4")
 
 func main() {
-	sessionManager.Option(session.Persist(true))
-	sessionManager.Option(session.LifeTime(time.Second * 30))
+	sessionManager.Option(scs.Persist(true))
+	sessionManager.Option(scs.LifeTime(time.Second * 30))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/put", putHandler)
@@ -60,7 +61,13 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 	}
-
+	session.WriteToResponseWriter(w)
+	sessions := sessionManager.FindSeesion()
+	log.Println("GET:", len(sessions))
+	sessions1 := sessionManager.FindSeesion(scs.FindByKVEq("message", "Hello world!"))
+	log.Println("GET KVEq:", len(sessions1))
+	sessions2 := sessionManager.FindSeesion(scs.FindTimeOut())
+	log.Println("GET TimeOut:", len(sessions2))
 	message, err := session.GetString("message")
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -68,5 +75,4 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("GET:", session.GetData())
 	io.WriteString(w, message)
 }
-
 ```

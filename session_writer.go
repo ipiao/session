@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,8 +19,7 @@ import (
 func (s *Session) WriteToResponseWriter(w http.ResponseWriter) error {
 	expiry := s.GetExpiry()
 	// 如果设置了闲置时间
-	log.Println("write:", s.data)
-	j, err := encodeToJSON(s.data, s.deadline)
+	j, err := encodeToJSON(s.id, s.data, s.deadline)
 	if err != nil {
 		return err
 	}
