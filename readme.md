@@ -34,6 +34,14 @@ var sessionManager = scs.NewCookieManager("u46IpCV9y5Vlur8YvODJEhgOY8m9JVE4")
 func main() {
 	sessionManager.Option(scs.Persist(true))
 	sessionManager.Option(scs.LifeTime(time.Second * 30))
+	
+	// mysql
+	// db, err := sql.Open("mysql", "root:1001@tcp(127.0.0.1:3306)/test")
+    // if err != nil {
+    //    log.Fatal(err)
+    // }
+    // var store = mysqlstore.New(db, time.Minute*10)
+    // sessionManager = scs.NewManager(store)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/put", putHandler)
