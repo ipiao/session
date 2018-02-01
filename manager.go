@@ -3,13 +3,13 @@ package session
 import (
 	"context"
 	"fmt"
-	"github.com/alexedwards/scs/stores/cookiestore"
 	"log"
 	"math"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
+
+	"github.com/ipiao/session/stores/cookiestore"
 )
 
 // Manager session控制器
@@ -33,6 +33,21 @@ func NewManager(store Store, opts ...Option) *Manager {
 	return manager
 }
 
+// NewCookieManager 返回cookie-session管理器
+// 客户端存储
+func NewCookieManager(key string, opts ...Option) *Manager {
+	store := cookiestore.New([]byte(key))
+	return NewManager(store)
+}
+
+// Option ...
+func (m *Manager) Option(opts ...Option) {
+	for _, o := range opts {
+		o(m.opts)
+	}
+}
+
+// 运行gc,简单设定间隔
 func (m *Manager) RunGC() {
 	d := time.Minute * 15
 	if m.opts.idleTimeout > 0 {
@@ -114,6 +129,7 @@ func (m *Manager) Load(r *http.Request) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	s := &Session{
 		token:    token,
 		data:     data,
@@ -122,6 +138,11 @@ func (m *Manager) Load(r *http.Request) (*Session, error) {
 		opts:     m.opts,
 	}
 	return s, nil
+}
+
+// Write 写入数据
+func (m *Manager) Write(session *Session, w http.ResponseWriter) error {
+	return session.WriteToResponseWriter(w)
 }
 
 func (m *Manager) Use(next http.Handler) http.Handler {
@@ -133,58 +154,14 @@ func (m *Manager) Use(next http.Handler) http.Handler {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		expiry := session.GetExpiry()
-		// 如果设置了闲置时间
-		j, err := encodeToJSON(session.data, session.deadline)
+		log.Println("use,load:", session.data)
+		err = m.Write(session, w)
 		if err != nil {
 			log.Println(err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		err = session.Write(j)
-		if err != nil {
-			log.Println(err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
-		}
-
-		if ce, ok := session.store.(clientStore); ok {
-			session.token, err = ce.MakeToken(j, expiry)
-			if err != nil {
-				log.Println(err)
-				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-				return
-			}
-		}
-
-		// 设置cookie
-		cookie := &http.Cookie{
-			Name:     session.opts.name,
-			Value:    session.token,
-			Path:     session.opts.path,
-			Domain:   session.opts.domain,
-			Secure:   session.opts.secure,
-			HttpOnly: session.opts.httpOnly,
-		}
-		if session.opts.persist == true {
-			// Round up expiry time to the nearest second.
-			cookie.Expires = time.Unix(expiry.Unix()+1, 0)
-			cookie.MaxAge = int(expiry.Sub(time.Now()).Seconds() + 1)
-		}
-
-		// 重写存在的cookie
-		var set bool
-		for i, h := range w.Header()["Set-Cookie"] {
-			if strings.HasPrefix(h, fmt.Sprintf("%s=", session.opts.name)) {
-				w.Header()["Set-Cookie"][i] = cookie.String()
-				set = true
-				break
-			}
-		}
-		// 如果不存在，则新生成一个
-		if !set {
-			http.SetCookie(w, cookie)
-		}
+		log.Println("use,write:", session.data)
 		ctx := context.WithValue(r.Context(), sessionName(m.opts.name), session)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

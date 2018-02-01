@@ -22,6 +22,7 @@ type Options struct {
 func NewOptions(opts ...Option) Options {
 	var options = Options{
 		httpOnly: true,
+		path:     "/",
 	}
 	for _, o := range opts {
 		o(&options)
@@ -31,9 +32,6 @@ func NewOptions(opts ...Option) Options {
 	}
 	if options.lifetime == 0 {
 		options.lifetime = time.Hour * 24
-	}
-	if options.idleTimeout == 0 {
-		options.idleTimeout = time.Minute * 30
 	}
 	return options
 }

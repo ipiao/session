@@ -26,9 +26,29 @@ type Session struct {
 	store    Store
 }
 
+// newSession 返回一个默认的Session
+func newSession(store Store, opts *Options) (*Session, error) {
+	token, err := generateToken()
+	if err != nil {
+		return nil, err
+	}
+	return &Session{
+		data:     make(map[string]interface{}),
+		deadline: time.Now().Add(opts.lifetime),
+		store:    store,
+		opts:     opts,
+		token:    token,
+	}, nil
+}
+
 // GetToken 获取sessionToken
 func (s *Session) GetToken() string {
 	return s.token
+}
+
+// GetData 获取session Data
+func (s *Session) GetData() map[string]interface{} {
+	return s.data
 }
 
 // GetExpiry 获取过期时间点
@@ -55,21 +75,6 @@ func (s *Session) TimeOut() bool {
 		return false
 	}
 	return true
-}
-
-// newSession 返回一个默认的Session
-func newSession(store Store, opts *Options) (*Session, error) {
-	token, err := generateToken()
-	if err != nil {
-		return nil, err
-	}
-	return &Session{
-		data:     make(map[string]interface{}),
-		deadline: time.Now().Add(opts.lifetime),
-		store:    store,
-		opts:     opts,
-		token:    token,
-	}, nil
 }
 
 // GetString 获取String
@@ -346,7 +351,6 @@ func (s *Session) PutBytes(key string, val []byte) error {
 	if val == nil {
 		return errors.New("value must not be nil")
 	}
-
 	return s.Put(key, val)
 }
 
@@ -387,12 +391,10 @@ func (s *Session) PutObject(key string, val interface{}) error {
 	if val == nil {
 		return errors.New("value must not be nil")
 	}
-
 	b, err := gobEncode(val)
 	if err != nil {
 		return err
 	}
-
 	return s.PutBytes(key, b)
 }
 
@@ -405,7 +407,6 @@ func (s *Session) PopObject(key string, dst interface{}) error {
 	if b == nil {
 		return nil
 	}
-
 	return gobDecode(b, dst)
 }
 
