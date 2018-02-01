@@ -47,7 +47,7 @@ func (m *Manager) Option(opts ...Option) {
 	}
 }
 
-// 运行gc,简单设定间隔
+// RunGC 运行gc,简单设定间隔
 func (m *Manager) RunGC() {
 	d := time.Minute * 15
 	if m.opts.idleTimeout > 0 {
@@ -71,6 +71,18 @@ func (m *Manager) gc() {
 			delete(m.sessions, k)
 		}
 	}
+}
+
+// FindSeesion 查找session
+func (m *Manager) FindSeesion(fds ...Finder) []*Session {
+	fd := MakeFinder(fds...)
+	var ret = make([]*Session, 0)
+	for _, s := range m.sessions {
+		if fd(s) {
+			ret = append(ret, s)
+		}
+	}
+	return ret
 }
 
 // NewSession 创建并且返回一个Session
@@ -145,6 +157,7 @@ func (m *Manager) Write(session *Session, w http.ResponseWriter) error {
 	return session.WriteToResponseWriter(w)
 }
 
+// Use 用作中间件，作为示例，具体使用根据业务场景而定
 func (m *Manager) Use(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 加载一个session
@@ -155,7 +168,7 @@ func (m *Manager) Use(next http.Handler) http.Handler {
 			return
 		}
 		log.Println("use,load:", session.data)
-		err = m.Write(session, w)
+		err = session.WriteToResponseWriter(w)
 		if err != nil {
 			log.Println(err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
