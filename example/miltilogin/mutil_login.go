@@ -1,50 +1,31 @@
-<!-- 简单的session处理机制 -->
-
-### session
-
->- [CSDN Go实现Session](http://blog.csdn.net/lzy_zhi_yuan/article/details/73127601)
->- [Github Alexedwards/scs](https://github.com/alexedwards/scs)
-
-> - 将cookieStore分类为客户端存储器
-> - 在manage中保存session信息,用于manager之间的交互，同时GC机制清理manager中保存的过期session
-> - 添加session-id,用于在管理器中查找已存在的session进行返回
-> - 添加Finder,用于在管理器中查找符合条件的session
-
-### TODO
->支持data查询
->ip锁定,多点登录,支持
-> - 同一个ip允许多个session
-> - 不同的ip不允许相同的session
-> - 一个session 一个用户
-
-###  demo
-
-```go
-
 package main
 
 import (
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 	"time"
 
 	scs "github.com/ipiao/session"
+	"github.com/ipiao/session/stores/memstore"
 )
 
-var sessionManager = scs.NewCookieManager("u46IpCV9y5Vlur8YvODJEhgOY8m9JVE4")
+// var sessionManager = scs.NewCookieManager("u46IpCV9y5Vlur8YvODJEhgOY8m9JVE4")
+var sessionManager *scs.Manager
 
 func main() {
+	store := memstore.New(time.Second * 30)
+	store.SetDumpFile("memdump.dmp")
+	sessionManager = scs.NewManager(store)
+	go notifySign()
+
 	sessionManager.Option(scs.Persist(true))
 	sessionManager.Option(scs.LifeTime(time.Second * 30))
-	
-	// mysql
-	// db, err := sql.Open("mysql", "root:1001@tcp(127.0.0.1:3306)/test")
-    // if err != nil {
-    //    log.Fatal(err)
-    // }
-    // var store = mysqlstore.New(db, time.Minute*10)
-    // sessionManager = scs.NewManager(store)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/put", putHandler)
@@ -66,6 +47,7 @@ func putHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 	}
+	// sessionManager.FindSeesion(scs.FindByKVEq("message", "Hello world!"))
 	log.Println("PUT:", session.GetData())
 }
 
@@ -74,6 +56,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 	}
+	log.Println("realip:", realIp(r))
 	session.WriteToResponseWriter(w)
 	sessions := sessionManager.FindSeesion()
 	log.Println("GET:", len(sessions))
@@ -88,4 +71,27 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("GET:", session.GetData())
 	io.WriteString(w, message)
 }
-```
+
+func notifySign() {
+	var sigRecv = make(chan os.Signal, 1)
+	sigs := []os.Signal{syscall.SIGINT, syscall.SIGQUIT}
+	signal.Notify(sigRecv, sigs...)
+	go func() {
+		for range sigRecv {
+			sessionManager.Close()
+			os.Exit(0)
+		}
+	}()
+}
+
+func realIp(r *http.Request) string {
+	ra := r.RemoteAddr
+	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+		ra = strings.Split(ip, ", ")[0]
+	} else if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		ra = ip
+	} else {
+		ra, _, _ = net.SplitHostPort(ra)
+	}
+	return ra
+}

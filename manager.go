@@ -231,11 +231,13 @@ func (m *Manager) Use(next http.Handler) http.Handler {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		err = session.WriteToResponseWriter(w)
-		if err != nil {
-			log.Println(err)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
+		if session.opts.idleTimeout > 0 && session.lastAccessTime.Add(session.opts.touchInterval).Before(time.Now()) || session.lastAccessTime.IsZero() {
+			err = session.WriteToResponseWriter(w)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
 		}
 		ctx := context.WithValue(r.Context(), sessionName(m.opts.name), session)
 		next.ServeHTTP(w, r.WithContext(ctx))

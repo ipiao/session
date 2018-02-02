@@ -8,14 +8,15 @@ var defaultName = "session"
 
 // Options 大部分继承自http Cookie里字段
 type Options struct {
-	name        string
-	domain      string
-	httpOnly    bool
-	idleTimeout time.Duration
-	lifetime    time.Duration
-	path        string
-	persist     bool
-	secure      bool
+	name          string
+	domain        string
+	httpOnly      bool
+	idleTimeout   time.Duration
+	lifetime      time.Duration
+	path          string
+	persist       bool
+	secure        bool
+	touchInterval time.Duration // 如果idleTimeout>0，刷新token的时间间隔，不必每个请求都刷新一边
 }
 
 // NewOptions 新建Options
@@ -92,5 +93,12 @@ func Persist(b bool) Option {
 func Secure(b bool) Option {
 	return func(o *Options) {
 		o.secure = b
+	}
+}
+
+// TouchInterval ..
+func TouchInterval(d time.Duration) Option {
+	return func(o *Options) {
+		o.touchInterval = d
 	}
 }

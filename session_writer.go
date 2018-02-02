@@ -18,6 +18,7 @@ import (
 // WriteToResponseWriter 将session数据写入到返回中
 func (s *Session) WriteToResponseWriter(w http.ResponseWriter) error {
 	expiry := s.GetExpiry()
+	s.lastAccessTime = time.Now()
 	// 如果设置了闲置时间
 	j, err := encodeToJSON(s.id, s.data, s.deadline)
 	if err != nil {

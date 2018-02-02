@@ -18,13 +18,14 @@ var ErrTypeAssertionFailed = errors.New("type assertion failed")
 
 // Session 一个会话状态
 type Session struct {
-	id       string                 // session的id值，一般情况下就是token
-	token    string                 // session的Token值，其实也就是sessionID
-	data     map[string]interface{} // session储存数据
-	deadline time.Time              // session过期时间
-	mu       sync.Mutex
-	opts     *Options
-	store    Store
+	id             string                 // session的id值，一般情况下就是token
+	token          string                 // session的Token值，其实也就是sessionID
+	data           map[string]interface{} // session储存数据
+	deadline       time.Time              // session过期时间
+	lastAccessTime time.Time
+	mu             sync.Mutex
+	opts           *Options
+	store          Store
 }
 
 // newSession 返回一个默认的Session
@@ -69,6 +70,11 @@ func (s *Session) GetExpiry() time.Time {
 		}
 	}
 	return expiry
+}
+
+// LastAccessTime 获取上次时间
+func (s *Session) LastAccessTime() time.Time {
+	return s.lastAccessTime
 }
 
 // TimeOut 判断session是否过期
@@ -569,7 +575,7 @@ func (s *Session) Pop(key string) (interface{}, bool, error) {
 func (s *Session) write(bs ...[]byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
+	s.lastAccessTime = time.Now()
 	if len(s.token) == 0 {
 		return errors.New("scs: token is empty,can not write")
 	}
