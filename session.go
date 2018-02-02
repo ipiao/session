@@ -24,12 +24,12 @@ type Session struct {
 	deadline       time.Time              // session过期时间
 	lastAccessTime time.Time
 	mu             sync.Mutex
-	opts           *Options
+	opts           Options
 	store          Store
 }
 
 // newSession 返回一个默认的Session
-func newSession(store Store, opts *Options) (*Session, error) {
+func newSession(store Store, opts Options) (*Session, error) {
 	token, err := generateToken()
 	if err != nil {
 		return nil, err

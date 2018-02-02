@@ -15,7 +15,7 @@ import (
 // Manager session控制器
 type Manager struct {
 	store    Store
-	opts     *Options
+	opts     Options
 	sessions map[string]*Session // 只是为了更方便的查询session的数据，判别session之间的关系
 	mu       sync.Mutex
 }
@@ -26,7 +26,7 @@ func NewManager(store Store, opts ...Option) *Manager {
 	options := NewOptions(opts...)
 	manager := &Manager{
 		store:    store,
-		opts:     &options,
+		opts:     options,
 		sessions: make(map[string]*Session),
 	}
 	// 从store中加载sessions
@@ -47,7 +47,7 @@ func NewManager(store Store, opts ...Option) *Manager {
 				data:     data,
 				deadline: expiry,
 				mu:       sync.Mutex{},
-				opts:     &options,
+				opts:     options,
 				store:    store,
 			}
 			manager.sessions[s.token] = &s
@@ -67,7 +67,7 @@ func NewCookieManager(key string, opts ...Option) *Manager {
 // Option ...
 func (m *Manager) Option(opts ...Option) {
 	for _, o := range opts {
-		o(m.opts)
+		o(&m.opts)
 	}
 }
 
@@ -175,14 +175,17 @@ func (m *Manager) load(r *http.Request, queryManager bool) (*Session, error) {
 		}
 		return s, nil
 	}
+
 	// 如果上下文中没有，从cokie中获取token,如果获取不到，直接生成
 	cookie, err := r.Cookie(m.opts.name)
 	if err == http.ErrNoCookie {
+		log.Println("newsession:", err)
 		return m.NewSession()
 	} else if err != nil {
 		return nil, err
 	}
 	if cookie.Value == "" {
+		log.Println("newsession cookie.Value is empty ")
 		return m.NewSession()
 	}
 	token := cookie.Value
@@ -239,7 +242,7 @@ func (m *Manager) Use(next http.Handler) http.Handler {
 				return
 			}
 		}
-		ctx := context.WithValue(r.Context(), sessionName(m.opts.name), session)
+		ctx := context.WithValue(r.Context(), sessionName(session.opts.name), session)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
