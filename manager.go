@@ -30,9 +30,9 @@ func NewManager(store Store, opts ...Option) *Manager {
 		sessions: make(map[string]*Session),
 	}
 	// 从store中加载sessions
-	bs, err := store.FindAll()
+	bs, err := store.Loads()
 	if err != nil {
-		log.Printf("can not load sessions from store, error ocure:%v", err)
+		log.Printf("can not load sessions from store, error occur:%v", err)
 	}
 	for _, b := range bs {
 		id, data, expiry, err := decodeFromJSON(b)
@@ -131,6 +131,16 @@ func (m *Manager) NewSession() (*Session, error) {
 	}
 	m.sessions[s.token] = s
 	return s, nil
+}
+
+// Stat 状态
+func (m *Manager) Stat() {
+	// TODO 返回 manager状态
+}
+
+// Close 关闭
+func (m *Manager) Close() error {
+	return m.store.Dumps()
 }
 
 //-------------------------

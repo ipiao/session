@@ -15,6 +15,7 @@ package memstore
 
 import (
 	"errors"
+	"os"
 	"time"
 
 	"github.com/patrickmn/go-cache"
@@ -25,7 +26,8 @@ var errTypeAssertionFailed = errors.New("type assertion failed: could not conver
 // MemStore represents the currently configured session session store. It is essentially
 // a wrapper around a go-cache instance (see https://github.com/patrickmn/go-cache).
 type MemStore struct {
-	cache *cache.Cache
+	cache    *cache.Cache
+	dumpfile string
 }
 
 // New returns a new MemStore instance.
@@ -35,8 +37,13 @@ type MemStore struct {
 // the cleanup goroutine from running (i.e. expired sessions will not be removed).
 func New(cleanupInterval time.Duration) *MemStore {
 	return &MemStore{
-		cache.New(cache.DefaultExpiration, cleanupInterval),
+		cache: cache.New(cache.DefaultExpiration, cleanupInterval),
 	}
+}
+
+// SetDumpFile 设置落地文件
+func (m *MemStore) SetDumpFile(f string) {
+	m.dumpfile = f
 }
 
 // Find returns the data for a given session token from the MemStore instance. If the session
@@ -80,4 +87,25 @@ func (m *MemStore) FindAll() (bs [][]byte, err error) {
 		bs = append(bs, b)
 	}
 	return
+}
+
+// Loads 加载
+func (m *MemStore) Loads() (bs [][]byte, err error) {
+	e := m.cache.LoadFile(m.dumpfile)
+	if e != nil {
+		if _, ok := e.(*os.PathError); ok {
+			return bs, nil
+		}
+		return
+	}
+	bs, err = m.FindAll()
+	return
+}
+
+// Dumps 数据存储
+func (m *MemStore) Dumps() (err error) {
+	if m.dumpfile == "" {
+		return nil
+	}
+	return m.cache.SaveFile(m.dumpfile)
 }

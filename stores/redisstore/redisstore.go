@@ -45,8 +45,8 @@ func (r *RedisStore) Find(token string) (b []byte, exists bool, err error) {
 	return b, true, nil
 }
 
-// FindAll 查找所有
-func (r *RedisStore) FindAll() (bs [][]byte, err error) {
+// Loads 加载所有
+func (r *RedisStore) Loads() (bs [][]byte, err error) {
 	conn := r.pool.Get()
 	defer conn.Close()
 	var ss []string
@@ -64,6 +64,14 @@ func (r *RedisStore) FindAll() (bs [][]byte, err error) {
 		}
 		bs = append(bs, b)
 	}
+	return
+}
+
+// Dumps 数据存储
+func (r *RedisStore) Dumps() (err error) {
+	conn := r.pool.Get()
+	defer conn.Close()
+	_, err = conn.Do("BGSAVE")
 	return
 }
 

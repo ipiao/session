@@ -74,7 +74,7 @@ func (m *MySQLStore) Find(token string) ([]byte, bool, error) {
 	return b, true, nil
 }
 
-func (m *MySQLStore) FindAll() ([][]byte, error) {
+func (m *MySQLStore) Loads() ([][]byte, error) {
 	var bs [][]byte
 	var stmt string
 
@@ -97,6 +97,11 @@ func (m *MySQLStore) FindAll() ([][]byte, error) {
 		bs = append(bs, b)
 	}
 	return bs, err
+}
+
+// Dumps 数据存储
+func (m *MySQLStore) Dumps() (err error) {
+	return nil
 }
 
 // Save adds a session token and data to the MySQLStore instance with the given expiry

@@ -18,11 +18,11 @@ type Store interface {
 	//// 返回存储器是否会自动GC
 	//AutoGC() bool
 
-	//// session数据落地,与Loads主要是针对memoryStore
-	//Dumps()(err error)
+	// session数据落地,与Loads主要是针对memoryStore
+	Dumps() (err error)
 
 	// 加载保存的session数据
-	FindAll() (bs [][]byte, err error)
+	Loads() (bs [][]byte, err error)
 }
 
 // 自带token生成方法的，将数据存储在token里面的存储器，如cookie存储器,客户端存储器
