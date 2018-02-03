@@ -91,6 +91,11 @@ func (s *Session) TimeOut() bool {
 	return true
 }
 
+// MayTouch 建议刷新
+func (s *Session) MayTouch() bool {
+	return s.opts.idleTimeout > 0 && s.lastAccessTime.Add(s.opts.touchInterval).Before(time.Now()) || s.lastAccessTime.IsZero()
+}
+
 // GetString 获取String
 func (s *Session) GetString(key string) (string, error) {
 	v, exists, err := s.Get(key)
