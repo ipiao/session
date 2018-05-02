@@ -91,6 +91,11 @@ func (s *Session) TimeOut() bool {
 	return true
 }
 
+// MayTouch 建议刷新
+func (s *Session) MayTouch() bool {
+	return s.opts.idleTimeout > 0 && s.lastAccessTime.Add(s.opts.touchInterval).Before(time.Now()) || s.lastAccessTime.IsZero()
+}
+
 // GetString 获取String
 func (s *Session) GetString(key string) (string, error) {
 	v, exists, err := s.Get(key)
@@ -521,11 +526,6 @@ func (s *Session) Destroy() error {
 		delete(s.data, key)
 	}
 	return nil
-}
-
-// Touch 相当于刷新一下时间
-func (s *Session) Touch() error {
-	return s.write()
 }
 
 // Write 相当于刷新一下时间

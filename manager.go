@@ -234,7 +234,7 @@ func (m *Manager) Use(next http.Handler) http.Handler {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-		if session.opts.idleTimeout > 0 && session.lastAccessTime.Add(session.opts.touchInterval).Before(time.Now()) || session.lastAccessTime.IsZero() {
+		if session.MayTouch() {
 			err = session.WriteToResponseWriter(w)
 			if err != nil {
 				log.Println(err)
